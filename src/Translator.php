@@ -21,7 +21,9 @@ class Translator extends BaseTranslator
     /*
      * Add the pattern of the key that you allow to be non-translated
      */
-    private $ignoreMissing = [];
+    private $ignoreMissing = [
+        'validation.custom.', //validation.custom.document_number.required // customer-upload ip
+    ];
 
     /**
      * Create a new translator instance.
