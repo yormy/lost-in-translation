@@ -17,4 +17,6 @@ return [
      * be translated.
      */
     'throw_exceptions' => env('TRANS_ERROR_ON_MISSING', false),
+
+    'translation_brand_path' => env('TRANS_BRAND_PATH', null),
 ];

@@ -4,8 +4,6 @@ namespace LostInTranslation;
 
 use Illuminate\Contracts\Translation\Loader;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Log\Logger;
-use Illuminate\Support\Facades\App;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator as BaseTranslator;
 use LostInTranslation\Events\MissingTranslationFound;
@@ -21,10 +19,16 @@ class Translator extends BaseTranslator
      */
     protected $logger;
 
-    protected $defaultLoader;
+    protected Loader $defaultLoader;
+    protected array $defaultContent = [];
 
-    protected $brandLoader;
+    protected ?Loader $brandLoader = null;
+    protected array $brandContent = [];
+
+    private bool $useBrandedLoader = false;
+
     /*
+     *
      * Add the pattern of the key that you allow to be non-translated
      */
     private $ignoreMissing = [
@@ -34,9 +38,9 @@ class Translator extends BaseTranslator
     /**
      * Create a new translator instance.
      *
-     * @param \Illuminate\Contracts\Translation\Loader  $loader
-     * @param string                                    $locale
-     * @param \Psr\Log\LoggerInterface                  $logger
+     * @param \Illuminate\Contracts\Translation\Loader $loader
+     * @param string $locale
+     * @param \Psr\Log\LoggerInterface $logger
      *
      * @return void
      */
@@ -44,11 +48,13 @@ class Translator extends BaseTranslator
     {
         parent::__construct($loader, $locale);
 
-
         $this->logger = $logger;
 
-        $this->defaultLoader = new FileLoader(new Filesystem(),'/app/lang');;
-        $this->brandLoader = new FileLoader(new Filesystem(),'/app/branding/rob/lang');
+        $this->defaultLoader = $this->loader;
+
+        if (config('lostintranslation.translation_brand_path')) {
+            $this->brandLoader = new FileLoader(new Filesystem(), config('lostintranslation.translation_brand_path'));
+        }
     }
 
     /**
@@ -57,44 +63,34 @@ class Translator extends BaseTranslator
      * This method acts as a pass-through to Illuminate\Translation\Translator::get(), but verifies
      * that a replacement has actually been made.
      *
-     * @throws MissingTranslationException When no replacement is made.
-     *
-     * @param  string      $key
-     * @param  array       $replace
-     * @param  string|null $locale
-     * @param  bool        $fallback
+     * @param string $key
+     * @param array $replace
+     * @param string|null $locale
+     * @param bool $fallback
      *
      * @return string|array|null
+     * @throws MissingTranslationException When no replacement is made.
+     *
      */
     public function get($key, array $replace = [], $locale = null, $fallback = true)
     {
-        //$key ="account/signup/general.welcome_to_platform";
-        //$key ="account/signup/general.enter_firstname";
-
-
-//        $path = app()->langPath();
-        //dd(app()->langPath());
-
-        $fallback = false;
-        //$this->loader = new FileLoader(new Filesystem(),'/app/branding/rob/lang');
-
-        $this->loader = $this->defaultLoader;
-        $translation = parent::get($key, $replace, $locale, $fallback);
-
-        if ($translation === $key) {
-            $this->loader = $this->defaultLoader;
-
+        if ($this->brandLoader) {
+            $this->setBrandedLoader();
             $translation = parent::get($key, $replace, $locale, $fallback);
-
         }
 
-        return $translation;
+        /*
+         * When the translation is the same it might not have a branded override, get the default translation
+         */
+        if (!$this->brandLoader || $translation === $key) {
+            $this->setDefaultLoader();
+            $translation = parent::get($key, $replace, $locale, $fallback);
+        }
 
         /*
          * When the translation is the same as the key, then the translation is not found
          */
         if ($translation === $key) {
-dd('missing');
             if ($this->shouldIgnore($key)) {
                 return $translation;
             }
@@ -118,42 +114,53 @@ dd('missing');
         return $translation;
     }
 
+    protected function isLoaded($namespace, $group, $locale)
+    {
+        if ($this->brandLoader && $this->useBrandedLoader) {
+            return isset($this->brandContent[$namespace][$group][$locale]);
+        }
 
+        return isset($this->defaultContent[$namespace][$group][$locale]);
+    }
+
+    /*
+     * Load the appropriate content if not already loaded
+     */
     public function load($namespace, $group, $locale)
     {
-
-//        if ($this->isLoaded($namespace, $group, $locale)) {
-//            return;
-//        }
+        if ($this->isLoaded($namespace, $group, $locale)) {
+            return;
+        }
 
         // The loader is responsible for returning the array of language lines for the
         // given namespace, group, and locale. We'll set the lines in this array of
         // lines that have already been loaded so that we can easily access them.
         $lines = $this->loader->load($locale, $group, $namespace);
 
-        //dd($lines);
+        if ($this->brandLoader && $this->useBrandedLoader) {
+            $this->brandContent[$namespace][$group][$locale] = $lines;
+            $this->loaded = $this->brandContent;
+            return;
+        }
 
-        $this->loaded[$namespace][$group][$locale] = $lines;
-
-        //$this->loadDefault($namespace, $group, $locale);
+        $this->defaultContent[$namespace][$group][$locale] = $lines;
+        $this->loaded = $this->defaultContent;
     }
 
-
-    public function loadBrand($namespace, $group, $locale)
+    /*
+     * Switch the loader and pre-loaded content to use for the translations
+     */
+    private function setBrandedLoader()
     {
-
+        $this->useBrandedLoader = true;
+        $this->loader = $this->brandLoader;
     }
 
-    public function loadDefault($namespace, $group, $locale)
+    private function setDefaultLoader()
     {
-        // The loader is responsible for returning the array of language lines for the
-        // given namespace, group, and locale. We'll set the lines in this array of
-        // lines that have already been loaded so that we can easily access them.
-        $lines = $this->loader->load($locale, $group, $namespace);
-
-        $this->loaded[$namespace][$group][$locale] = $lines;
+        $this->useBrandedLoader = false;
+        $this->loader = $this->defaultLoader;
     }
-
 
     /**
      * Check if there is a translation in a json file
@@ -167,16 +174,16 @@ dd('missing');
      * Log a missing translation.
      *
      * @param string $key
-     * @param array  $replacements
+     * @param array $replacements
      * @param string $locale
-     * @param bool   $fallback
+     * @param bool $fallback
      */
     protected function logMissingTranslation(string $key, array $replacements, ?string $locale, bool $fallback): void
     {
         $this->logger->notice('Missing translation: ' . $key, [
             'replacements' => $replacements,
-            'locale'       => $locale ?: config('app.locale'),
-            'fallback'     => $fallback ? config('app.fallback_locale') : '',
+            'locale' => $locale ?: config('app.locale'),
+            'fallback' => $fallback ? config('app.fallback_locale') : '',
         ]);
     }
 
@@ -189,7 +196,6 @@ dd('missing');
 
         $result = false;
         foreach ($this->ignoreMissing as $pattern) {
-
             if (false !== str_contains($key, $pattern)) {
                 $result = true;
             }
