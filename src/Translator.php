@@ -3,7 +3,10 @@
 namespace LostInTranslation;
 
 use Illuminate\Contracts\Translation\Loader;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Log\Logger;
+use Illuminate\Support\Facades\App;
+use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator as BaseTranslator;
 use LostInTranslation\Events\MissingTranslationFound;
 use LostInTranslation\Exceptions\MissingTranslationException;
@@ -18,6 +21,9 @@ class Translator extends BaseTranslator
      */
     protected $logger;
 
+    protected $defaultLoader;
+
+    protected $brandLoader;
     /*
      * Add the pattern of the key that you allow to be non-translated
      */
@@ -38,7 +44,11 @@ class Translator extends BaseTranslator
     {
         parent::__construct($loader, $locale);
 
+
         $this->logger = $logger;
+
+        $this->defaultLoader = new FileLoader(new Filesystem(),'/app/lang');;
+        $this->brandLoader = new FileLoader(new Filesystem(),'/app/branding/rob/lang');
     }
 
     /**
@@ -58,13 +68,33 @@ class Translator extends BaseTranslator
      */
     public function get($key, array $replace = [], $locale = null, $fallback = true)
     {
+        //$key ="account/signup/general.welcome_to_platform";
+        //$key ="account/signup/general.enter_firstname";
+
+
+//        $path = app()->langPath();
+        //dd(app()->langPath());
+
+        $fallback = false;
+        //$this->loader = new FileLoader(new Filesystem(),'/app/branding/rob/lang');
+
+        $this->loader = $this->defaultLoader;
         $translation = parent::get($key, $replace, $locale, $fallback);
+
+        if ($translation === $key) {
+            $this->loader = $this->defaultLoader;
+
+            $translation = parent::get($key, $replace, $locale, $fallback);
+
+        }
+
+        return $translation;
 
         /*
          * When the translation is the same as the key, then the translation is not found
          */
         if ($translation === $key) {
-
+dd('missing');
             if ($this->shouldIgnore($key)) {
                 return $translation;
             }
@@ -87,6 +117,43 @@ class Translator extends BaseTranslator
 
         return $translation;
     }
+
+
+    public function load($namespace, $group, $locale)
+    {
+
+//        if ($this->isLoaded($namespace, $group, $locale)) {
+//            return;
+//        }
+
+        // The loader is responsible for returning the array of language lines for the
+        // given namespace, group, and locale. We'll set the lines in this array of
+        // lines that have already been loaded so that we can easily access them.
+        $lines = $this->loader->load($locale, $group, $namespace);
+
+        //dd($lines);
+
+        $this->loaded[$namespace][$group][$locale] = $lines;
+
+        //$this->loadDefault($namespace, $group, $locale);
+    }
+
+
+    public function loadBrand($namespace, $group, $locale)
+    {
+
+    }
+
+    public function loadDefault($namespace, $group, $locale)
+    {
+        // The loader is responsible for returning the array of language lines for the
+        // given namespace, group, and locale. We'll set the lines in this array of
+        // lines that have already been loaded so that we can easily access them.
+        $lines = $this->loader->load($locale, $group, $namespace);
+
+        $this->loaded[$namespace][$group][$locale] = $lines;
+    }
+
 
     /**
      * Check if there is a translation in a json file
