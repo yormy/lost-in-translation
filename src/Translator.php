@@ -74,7 +74,7 @@ class Translator extends BaseTranslator
      */
     public function get($key, array $replace = [], $locale = null, $fallback = true)
     {
-        if ($this->brandLoader) {
+        if (config('lostintranslation.translation_brand_path')) {
             $this->setBrandedLoader();
             $translation = parent::get($key, $replace, $locale, $fallback);
         }
