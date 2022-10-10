@@ -19,4 +19,6 @@ return [
     'throw_exceptions' => env('TRANS_ERROR_ON_MISSING', false),
 
     'translation_brand_path' => env('TRANS_BRAND_PATH', null),
+
+    'log_file' => env('TRANS_LOG_FILE', null),
 ];

@@ -180,6 +180,15 @@ class Translator extends BaseTranslator
      */
     protected function logMissingTranslation(string $key, array $replacements, ?string $locale, bool $fallback): void
     {
+        $path = storage_path();
+
+        if ($logFile = config('lostintranslation.log_file')) {
+            $now = date("Y-m-d H:i:s");
+            $fp = fopen($path . $logFile, 'a+');//opens file in append mode.
+            fwrite($fp, $now . " " . $key . PHP_EOL);
+            fclose($fp);
+        }
+
         $this->logger->notice('Missing translation: ' . $key, [
             'replacements' => $replacements,
             'locale' => $locale ?: config('app.locale'),
