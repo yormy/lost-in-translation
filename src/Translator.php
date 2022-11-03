@@ -7,6 +7,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator as BaseTranslator;
 use LostInTranslation\Events\MissingTranslationFound;
+use LostInTranslation\Exceptions\InvalidConfigException;
 use LostInTranslation\Exceptions\MissingTranslationException;
 use Psr\Log\LoggerInterface;
 
@@ -35,6 +36,8 @@ class Translator extends BaseTranslator
         'validation.custom.', //validation.custom.document_number.required // customer-upload ip
     ];
 
+    private ?array $commonTranslationsTranslated = null;
+
     /**
      * Create a new translator instance.
      *
@@ -55,7 +58,30 @@ class Translator extends BaseTranslator
         if (config('lostintranslation.translation_brand_path')) {
             $this->brandLoader = new FileLoader(new Filesystem(), config('lostintranslation.translation_brand_path'));
         }
+
+        $this->getCommonTranslations();
+
     }
+
+    private function getCommonTranslations()
+    {
+        if (is_array($this->commonTranslationsTranslated)) {
+            return;
+        }
+
+        if ($commonTranslations = config('lostintranslation.common_translations')) {
+            if (!is_array($commonTranslations))
+            {
+                throw new InvalidConfigException('common_translations must be an array with attribute => translationkey )ie. \'servicename\' => \'branding/service.name\'');
+            }
+
+            foreach($commonTranslations as $attribute => $translationKey) {
+                $this->commonTranslationsTranslated[$attribute] = $this->get($translationKey);
+            }
+
+        }
+    }
+
 
     /**
      * Get the translation for the given key.
@@ -74,6 +100,8 @@ class Translator extends BaseTranslator
      */
     public function get($key, array $replace = [], $locale = null, $fallback = true)
     {
+        $replace = $this->addCommonAttributes($replace);
+
         if (config('lostintranslation.translation_brand_path')) {
             $this->setBrandedLoader();
             $translation = parent::get($key, $replace, $locale, $fallback);
@@ -113,6 +141,18 @@ class Translator extends BaseTranslator
 
         return $translation;
     }
+
+    protected function addCommonAttributes(array $replace): array
+    {
+        if (is_array($this->commonTranslationsTranslated)) {
+            foreach ($this->commonTranslationsTranslated as $attribute => $translated) {
+                $replace[$attribute] = $translated;
+            }
+        }
+
+        return $replace;
+    }
+
 
     protected function isLoaded($namespace, $group, $locale)
     {
