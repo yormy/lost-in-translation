@@ -1,5 +1,10 @@
 # Lost in Translation
 
+
+# NOTES:
+Common translations must all be translated in every override, otherwise there is an exception.
+So when setting up a new translation overrides for branding, first make sure all the common_translations are also translated in the override
+
 [![Build Status](https://travis-ci.org/stevegrunwell/lost-in-translation.svg?branch=develop)](https://travis-ci.org/stevegrunwell/lost-in-translation)
 [![Coverage Status](https://coveralls.io/repos/github/stevegrunwell/lost-in-translation/badge.svg?branch=develop)](https://coveralls.io/github/stevegrunwell/lost-in-translation?branch=develop)
 
