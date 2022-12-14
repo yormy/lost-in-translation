@@ -28,6 +28,8 @@ class Translator extends BaseTranslator
 
     private bool $useBrandedLoader = false;
 
+    private BaseTranslator $commonTranslator;
+
     /*
      *
      * Add the pattern of the key that you allow to be non-translated
@@ -55,6 +57,8 @@ class Translator extends BaseTranslator
 
         $this->defaultLoader = $this->loader;
 
+        $this->commonTranslator = new BaseTranslator($loader, $locale, $logger);
+
         if (config('lostintranslation.translation_brand_path')) {
             $this->brandLoader = new FileLoader(new Filesystem(), config('lostintranslation.translation_brand_path'));
         }
@@ -76,7 +80,7 @@ class Translator extends BaseTranslator
             }
 
             foreach($commonTranslations as $attribute => $translationKey) {
-                $this->commonTranslationsTranslated[$attribute] = $this->get($translationKey);
+                $this->commonTranslationsTranslated[$attribute] = $this->commonTranslator->get($translationKey);
             }
 
         }
