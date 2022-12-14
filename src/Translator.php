@@ -109,13 +109,13 @@ class Translator extends BaseTranslator
         if (config('lostintranslation.translation_brand_path')) {
             $this->setBrandedLoader();
             $translation = parent::get($key, $replace, $locale, $fallback);
+            $this->setDefaultLoader();
         }
 
         /*
          * When the translation is the same it might not have a branded override, get the default translation
          */
         if (!$this->brandLoader || $translation === $key) {
-            $this->setDefaultLoader();
             $translation = parent::get($key, $replace, $locale, $fallback);
         }
 
