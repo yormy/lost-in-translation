@@ -4,6 +4,7 @@ namespace LostInTranslation;
 
 use Illuminate\Contracts\Translation\Loader;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator as BaseTranslator;
 use LostInTranslation\Events\MissingTranslationFound;
@@ -27,8 +28,6 @@ class Translator extends BaseTranslator
     protected array $brandContent = [];
 
     private bool $useBrandedLoader = false;
-
-    private BaseTranslator $commonTranslator;
 
     /*
      *
@@ -57,8 +56,6 @@ class Translator extends BaseTranslator
 
         $this->defaultLoader = $this->loader;
 
-        $this->commonTranslator = new BaseTranslator($loader, $locale, $logger);
-
         if (config('lostintranslation.translation_brand_path')) {
             $this->brandLoader = new FileLoader(new Filesystem(), config('lostintranslation.translation_brand_path'));
         }
@@ -69,21 +66,24 @@ class Translator extends BaseTranslator
 
     private function getCommonTranslations()
     {
-        if (is_array($this->commonTranslationsTranslated)) {
-            return;
-        }
+        $this->commonTranslationsTranslated = Cache::remember(
+            'common_translations-',
+            300,
+            function () {
+                $translations = [];
+                if ($commonTranslations = config('lostintranslation.common_translations')) {
+                    if (!is_array($commonTranslations))
+                    {
+                        throw new InvalidConfigException('common_translations must be an array with attribute => translationkey )ie. \'servicename\' => \'branding/service.name\'');
+                    }
 
-        if ($commonTranslations = config('lostintranslation.common_translations')) {
-            if (!is_array($commonTranslations))
-            {
-                throw new InvalidConfigException('common_translations must be an array with attribute => translationkey )ie. \'servicename\' => \'branding/service.name\'');
-            }
+                    foreach($commonTranslations as $attribute => $translationKey) {
+                        $translations[$attribute] = $this->get($translationKey);
+                    }
 
-            foreach($commonTranslations as $attribute => $translationKey) {
-                $this->commonTranslationsTranslated[$attribute] = $this->commonTranslator->get($translationKey);
-            }
-
-        }
+                    return $translations;
+                }
+            });
     }
 
 
