@@ -21,14 +21,6 @@ class Translator extends BaseTranslator
      */
     protected $logger;
 
-    protected Loader $defaultLoader;
-    protected array $defaultContent = [];
-
-    protected ?Loader $brandLoader = null;
-    protected array $brandContent = [];
-
-    private bool $useBrandedLoader = false;
-
 
     private $newBrandedTranslator;
     /*
@@ -39,7 +31,7 @@ class Translator extends BaseTranslator
         'validation.custom.', //validation.custom.document_number.required // customer-upload ip
     ];
 
-    private ?array $commonTranslationsTranslated = null;
+    private ?array $commonTranslationsTranslated = [];
 
     /**
      * Create a new translator instance.
@@ -56,13 +48,7 @@ class Translator extends BaseTranslator
 
         $this->logger = $logger;
 
-        $this->defaultLoader = $this->loader;
-
         $this->newBrandedTranslator = new brandedTranslator($loader, $locale);
-
-        if (config('lostintranslation.translation_brand_path')) {
-            $this->brandLoader = new FileLoader(new Filesystem(), config('lostintranslation.translation_brand_path'));
-        }
 
         $this->getCommonTranslations();
 
@@ -117,7 +103,7 @@ class Translator extends BaseTranslator
         /*
          * When the translation is the same it might not have a branded override, get the default translation
          */
-        if (!$this->brandLoader || $translation === $key) {
+        if ($translation === $key) {
             $translation = parent::get($key, $replace, $locale, $fallback);
         }
 
@@ -157,55 +143,6 @@ class Translator extends BaseTranslator
         }
 
         return $replace;
-    }
-
-
-    protected function isLoaded($namespace, $group, $locale)
-    {
-        if ($this->brandLoader && $this->useBrandedLoader) {
-            return isset($this->brandContent[$namespace][$group][$locale]);
-        }
-
-        return isset($this->defaultContent[$namespace][$group][$locale]);
-    }
-
-    /*
-     * Load the appropriate content if not already loaded
-     */
-    public function load($namespace, $group, $locale)
-    {
-        if ($this->isLoaded($namespace, $group, $locale)) {
-           // return;
-        }
-
-        // The loader is responsible for returning the array of language lines for the
-        // given namespace, group, and locale. We'll set the lines in this array of
-        // lines that have already been loaded so that we can easily access them.
-        $lines = $this->loader->load($locale, $group, $namespace);
-
-        if ($this->brandLoader && $this->useBrandedLoader) {
-            $this->brandContent[$namespace][$group][$locale] = $lines;
-            $this->loaded = $this->brandContent;
-            return;
-        }
-
-        $this->defaultContent[$namespace][$group][$locale] = $lines;
-        $this->loaded = $this->defaultContent;
-    }
-
-    /*
-     * Switch the loader and pre-loaded content to use for the translations
-     */
-    private function setBrandedLoader()
-    {
-        $this->useBrandedLoader = true;
-        $this->loader = $this->brandLoader;
-    }
-
-    private function setDefaultLoader()
-    {
-        $this->useBrandedLoader = false;
-        $this->loader = $this->defaultLoader;
     }
 
     /**
