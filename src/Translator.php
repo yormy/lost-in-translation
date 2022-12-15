@@ -29,6 +29,8 @@ class Translator extends BaseTranslator
 
     private bool $useBrandedLoader = false;
 
+
+    private $newBrandedTranslator;
     /*
      *
      * Add the pattern of the key that you allow to be non-translated
@@ -55,6 +57,8 @@ class Translator extends BaseTranslator
         $this->logger = $logger;
 
         $this->defaultLoader = $this->loader;
+
+        $this->newBrandedTranslator = new brandedTranslator($loader, $locale);
 
         if (config('lostintranslation.translation_brand_path')) {
             $this->brandLoader = new FileLoader(new Filesystem(), config('lostintranslation.translation_brand_path'));
@@ -107,9 +111,7 @@ class Translator extends BaseTranslator
         $replace = $this->addCommonAttributes($replace);
 
         if (config('lostintranslation.translation_brand_path')) {
-            $this->setBrandedLoader();
-            $translation = parent::get($key, $replace, $locale, $fallback);
-            $this->setDefaultLoader();
+            $translation = $this->newBrandedTranslator->getWithCommon($key, $replace, $this->commonTranslationsTranslated, $locale, $fallback);
         }
 
         /*
@@ -173,7 +175,7 @@ class Translator extends BaseTranslator
     public function load($namespace, $group, $locale)
     {
         if ($this->isLoaded($namespace, $group, $locale)) {
-            return;
+           // return;
         }
 
         // The loader is responsible for returning the array of language lines for the
