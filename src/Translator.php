@@ -94,6 +94,8 @@ class Translator extends BaseTranslator
      */
     public function get($key, array $replace = [], $locale = null, $fallback = true)
     {
+        $translation = $key;
+
         $replace = $this->addCommonAttributes($replace);
 
         if (config('lostintranslation.translation_brand_path')) {
